@@ -21,12 +21,12 @@ A comprehensive, production-ready analytics platform designed for **enterprise-l
 
 ## 🚀 Live Demo
 
-| Component | Description | Live Demo |
-|-----------|-------------|-----------|
-| 📊 **Advanced Dashboard** | Real-time monitoring & visualization | [View Demo](https://your-demo-link.com/dashboard) |
-| 🔍 **Deep Analysis Tool** | Comprehensive pattern analysis | [View Demo](https://your-demo-link.com/analysis) |
-| 🤖 **ML Models Platform** | AI training & prediction suite | [View Demo](https://your-demo-link.com/ml-models) |
-| 📊 **Executive Reports** | C-level business intelligence | [View Demo](https://your-demo-link.com/reports) |
+| Component | Description | 
+|-----------|-------------|
+| 📊 **Advanced Dashboard** | Real-time monitoring & visualization |
+| 🔍 **Deep Analysis Tool** | Comprehensive pattern analysis | 
+| 🤖 **ML Models Platform** | AI training & prediction suite | 
+| 📊 **Executive Reports** | C-level business intelligence | 
 
 ---
 
@@ -247,68 +247,11 @@ open http://localhost:8000
 
 ---
 
-## 🔒 Security & Compliance
 
-- ✅ **GDPR Compliant** (98.4% compliance rate)
-- ✅ **Privacy by Design** - No personal data storage
-- ✅ **Client-side Processing** - Data never leaves your environment
-- ✅ **Enterprise Security** - Industry-standard practices
-- ✅ **Audit Trail** - Complete activity logging
-
----
-
-## 📚 Documentation
-
-| Document | Description |
-|----------|-------------|
-| [Installation Guide](docs/installation.md) | Step-by-step setup instructions |
-| [Configuration Manual](docs/configuration.md) | Platform configuration options |
-| [User Guide](docs/user_guide.md) | Complete user manual |
-| [API Reference](docs/api_reference.md) | Technical API documentation |
-| [Deployment Guide](docs/deployment.md) | Production deployment instructions |
-
----
-
-## 🧪 Testing
-
-```bash
-# Run all tests
-npm test
-
-# Run specific test suites
-npm run test:unit
-npm run test:integration
-npm run test:e2e
-
-# Generate coverage report
-npm run test:coverage
-```
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md).
-
-### Development Setup
-```bash
-# Fork and clone the repository
-git clone https://github.com/yourusername/tiktok-analytics-suite.git
-
-# Create a feature branch
-git checkout -b feature/your-feature-name
-
-# Make your changes and test
-npm run test
-
-# Submit a pull request
-```
-
----
 
 ## 🐛 Issue Reporting
 
-Found a bug? [Create an issue](https://github.com/yourusername/tiktok-analytics-suite/issues) with:
+Found a bug? [Create an issue](https://github.com/miyolcu/tiktok-analytics-suite/issues) with:
 - **Environment details**
 - **Steps to reproduce**
 - **Expected vs actual behavior**
@@ -389,10 +332,7 @@ docker run -p 8080:80 tiktok-analytics-suite
 
 ## 📞 Support & Contact
 
-- **📧 Email**: support@tiktok-analytics-suite.com
-- **💬 Discord**: [Join our community](https://discord.gg/your-invite)
-- **🐛 Issues**: [GitHub Issues](https://github.com/yourusername/tiktok-analytics-suite/issues)
-- **📚 Documentation**: [Full Documentation](https://docs.tiktok-analytics-suite.com)
+- **📧 Email**: miyolcu@gmail.com
 
 ---
 
