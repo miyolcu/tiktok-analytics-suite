@@ -1,0 +1,14 @@
+{
+  "video_id": "string",
+  "user_id": "string",
+  "category": "enum[komedi, pet, dans, e\u011flence, spor, m\u00fczik, gaming, g\u00fczellik, moda, teknoloji]",
+  "content_type": "enum[organic, bot_boosted, misinformation, disinformation, abuse, coordinated]",
+  "views": "integer",
+  "likes": "integer",
+  "comments": "integer",
+  "shares": "integer",
+  "engagement_rate": "float",
+  "anomaly_score": "float",
+  "is_suspicious": "boolean",
+  "post_datetime": "datetime"
+}

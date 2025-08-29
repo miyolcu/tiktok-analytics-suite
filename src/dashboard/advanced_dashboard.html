@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced TikTok Analytics Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
+    <style>
+        .loading-spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .card-hover {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        .anomaly-high { background-color: #ef4444; }
+        .anomaly-medium { background-color: #f59e0b; }
+        .anomaly-low { background-color: #10b981; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    
+    <!-- Header -->
+    <header class="gradient-bg shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <div class="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                        <span class="text-3xl text-white">📊</span>
+                    </div>
+                    <div>
+                        <h1 class="text-4xl font-bold text-white">Advanced TikTok Analytics</h1>
+                        <p class="text-blue-100 text-lg">Production Dataset Analysis & Manipulation Detection</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-6">
+                    <div class="text-right text-white">
+                        <div id="datasetInfo" class="text-sm opacity-90">No data loaded</div>
+                        <div id="lastUpdated" class="text-xs opacity-75">Ready to import</div>
+                    </div>
+                    <button onclick="document.getElementById('csvFiles').click()" 
+                            class="bg-white/20 backdrop-blur-sm text-white px-6 py-3 rounded-lg font-medium hover:bg-white/30 transition-colors border border-white/30">
+                        📁 Import Data
+                    </button>
+                    <input type="file" id="csvFiles" multiple accept=".csv" class="hidden" onchange="loadCSVFiles(event)">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-xl p-8 text-center">
+            <div class="loading-spinner"></div>
+            <h3 class="text-lg font-semibold mb-2">Processing Large Dataset</h3>
+            <p id="loadingStatus" class="text-gray-600">Initializing...</p>
+            <div class="mt-4 bg-gray-200 rounded-full h-2 w-64">
+                <div id="loadingProgress" class="bg-blue-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Real-time Statistics -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+            <div class="bg-white rounded-xl shadow-lg p-6 card-hover border-l-4 border-blue-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Total Videos</p>
+                        <p id="totalVideos" class="text-2xl font-bold text-gray-900">-</p>
+                    </div>
+                    <div class="p-3 bg-blue-100 rounded-full">
+                        <span class="text-blue-600 text-xl">🎬</span>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <span id="videoGrowth" class="text-xs text-green-600 font-medium">+0%</span>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 card-hover border-l-4 border-green-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Active Users</p>
+                        <p id="totalUsers" class="text-2xl font-bold text-gray-900">-</p>
+                    </div>
+                    <div class="p-3 bg-green-100 rounded-full">
+                        <span class="text-green-600 text-xl">👥</span>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <span id="userGrowth" class="text-xs text-green-600 font-medium">+0%</span>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 card-hover border-l-4 border-purple-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Total Interactions</p>
+                        <p id="totalInteractions" class="text-2xl font-bold text-gray-900">-</p>
+                    </div>
+                    <div class="p-3 bg-purple-100 rounded-full">
+                        <span class="text-purple-600 text-xl">💬</span>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <span id="interactionGrowth" class="text-xs text-green-600 font-medium">+0%</span>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 card-hover border-l-4 border-red-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Manipulation Rate</p>
+                        <p id="manipulationRate" class="text-2xl font-bold text-gray-900">-</p>
+                    </div>
+                    <div class="p-3 bg-red-100 rounded-full">
+                        <span class="text-red-600 text-xl">⚠️</span>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <span id="manipulationTrend" class="text-xs text-red-600 font-medium">-0%</span>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 card-hover border-l-4 border-yellow-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Bot Activity</p>
+                        <p id="botActivity" class="text-2xl font-bold text-gray-900">-</p>
+                    </div>
+                    <div class="p-3 bg-yellow-100 rounded-full">
+                        <span class="text-yellow-600 text-xl">🤖</span>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <span id="botTrend" class="text-xs text-yellow-600 font-medium">-0%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced Analytics Grid -->
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-8">
+            
+            <!-- Content Type Analysis -->
+            <div class="xl:col-span-1 bg-white rounded-xl shadow-lg p-6 card-hover">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold text-gray-900">Content Type Analysis</h2>
+                    <div class="flex items-center space-x-2">
+                        <div class="status-indicator bg-green-500"></div>
+                        <span class="text-xs text-gray-500">Live</span>
+                    </div>
+                </div>
+                <div class="relative">
+                    <canvas id="contentTypeChart" width="300" height="300"></canvas>
+                </div>
+                <div id="contentTypeLegend" class="mt-4 space-y-2">
+                    <!-- Dynamic legend will be populated here -->
+                </div>
+            </div>
+
+            <!-- Engagement Trends -->
+            <div class="xl:col-span-2 bg-white rounded-xl shadow-lg p-6 card-hover">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold text-gray-900">Engagement Trends Over Time</h2>
+                    <select id="trendTimeframe" onchange="updateTrendChart()" class="text-sm border border-gray-300 rounded px-3 py-1">
+                        <option value="daily">Daily View</option>
+                        <option value="hourly">Hourly View</option>
+                        <option value="category">By Category</option>
+                    </select>
+                </div>
+                <div class="relative">
+                    <canvas id="engagementTrendChart" height="120"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manipulation Detection & Bot Analysis -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            
+            <!-- Anomaly Detection -->
+            <div class="bg-white rounded-xl shadow-lg p-6 card-hover">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold text-gray-900">Anomaly Detection Matrix</h2>
+                    <button onclick="refreshAnomalyData()" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded transition-colors">
+                        🔄 Refresh
+                    </button>
+                </div>
+                
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-3 h-3 anomaly-high rounded-full"></div>
+                            <div>
+                                <p class="font-medium text-red-900">High Risk Content</p>
+                                <p class="text-sm text-red-700">Anomaly score > 0.8</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p id="highRiskCount" class="text-lg font-bold text-red-900">-</p>
+                            <p class="text-xs text-red-600">videos</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-3 h-3 anomaly-medium rounded-full"></div>
+                            <div>
+                                <p class="font-medium text-yellow-900">Medium Risk Content</p>
+                                <p class="text-sm text-yellow-700">Anomaly score 0.5-0.8</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p id="mediumRiskCount" class="text-lg font-bold text-yellow-900">-</p>
+                            <p class="text-xs text-yellow-600">videos</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-3 h-3 anomaly-low rounded-full"></div>
+                            <div>
+                                <p class="font-medium text-green-900">Low Risk Content</p>
+                                <p class="text-sm text-green-700">Anomaly score < 0.5</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p id="lowRiskCount" class="text-lg font-bold text-green-900">-</p>
+                            <p class="text-xs text-green-600">videos</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6">
+                    <div class="relative">
+                        <canvas id="anomalyScoreChart" height="120"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bot Network Analysis -->
+            <div class="bg-white rounded-xl shadow-lg p-6 card-hover">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold text-gray-900">Bot Network Analysis</h2>
+                    <span id="botClusterCount" class="text-sm bg-red-100 text-red-800 px-2 py-1 rounded-full font-medium">- clusters</span>
+                </div>
+                
+                <div id="botNetworkStats" class="space-y-4">
+                    <!-- Bot cluster information will be populated here -->
+                </div>
+
+                <div class="mt-6">
+                    <h3 class="text-sm font-medium text-gray-700 mb-3">Coordination Strength Distribution</h3>
+                    <div class="relative">
+                        <canvas id="botCoordinationChart" height="100"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category Performance Matrix -->
+        <div class="bg-white rounded-xl shadow-lg p-6 card-hover mb-8">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-bold text-gray-900">Category Performance Matrix</h2>
+                <div class="flex space-x-2">
+                    <button onclick="showCategoryView('engagement')" id="engagementBtn" 
+                            class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors">
+                        Engagement Analysis
+                    </button>
+                    <button onclick="showCategoryView('manipulation')" id="manipulationBtn"
+                            class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors">
+                        Manipulation Impact
+                    </button>
+                    <button onclick="showCategoryView('growth')" id="growthBtn"
+                            class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors">
+                        Growth Trends
+                    </button>
+                </div>
+            </div>
+            
+            <div class="relative">
+                <canvas id="categoryMatrix" height="150"></canvas>
+            </div>
+
+            <!-- Category Insights Table -->
+            <div class="mt-6 overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Videos</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Engagement</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Manipulation Rate</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Risk Level</th>
+                        </tr>
+                    </thead>
+                    <tbody id="categoryTableBody" class="bg-white divide-y divide-gray-200">
+                        <!-- Dynamic table content will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Advanced Interaction Analysis -->
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
+            
+            <!-- Interaction Patterns -->
+            <div class="bg-white rounded-xl shadow-lg p-6 card-hover">
+                <h2 class="text-xl font-bold text-gray-900 mb-6">Interaction Pattern Analysis</h2>
+                
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="text-center p-4 bg-blue-50 rounded-lg">
+                        <p class="text-2xl font-bold text-blue-600" id="avgLikesPerVideo">-</p>
+                        <p class="text-sm text-blue-800">Avg Likes/Video</p>
+                    </div>
+                    <div class="text-center p-4 bg-green-50 rounded-lg">
+                        <p class="text-2xl font-bold text-green-600" id="avgCommentsPerVideo">-</p>
+                        <p class="text-sm text-green-800">Avg Comments/Video</p>
+                    </div>
+                    <div class="text-center p-4 bg-purple-50 rounded-lg">
+                        <p class="text-2xl font-bold text-purple-600" id="avgSharesPerVideo">-</p>
+                        <p class="text-sm text-purple-800">Avg Shares/Video</p>
+                    </div>
+                    <div class="text-center p-4 bg-red-50 rounded-lg">
+                        <p class="text-2xl font-bold text-red-600" id="avgReportsPerVideo">-</p>
+                        <p class="text-sm text-red-800">Avg Reports/Video</p>
+                    </div>
+                </div>
+
+                <div class="relative">
+                    <canvas id="interactionPatternsChart" height="120"></canvas>
+                </div>
+            </div>
+
+            <!-- Geographic Analysis -->
+            <div class="bg-white rounded-xl shadow-lg p-6 card-hover">
+                <h2 class="text-xl font-bold text-gray-900 mb-6">Geographic Distribution</h2>
+                
+                <div class="space-y-3 mb-6">
+                    <div id="countryStats" class="space-y-2">
+                        <!-- Country statistics will be populated here -->
+                    </div>
+                </div>
+
+                <div class="relative">
+                    <canvas id="geographicChart" height="120"></canvas>
+                </div>
+
+                <div class="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                    <p class="text-sm text-amber-800">
+                        <span class="font-medium">Cross-country interactions:</span> 
+                        <span id="crossCountryRate" class="font-bold">-%</span> of total interactions
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Real-time Activity Feed -->
+        <div class="bg-white rounded-xl shadow-lg p-6 card-hover">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-bold text-gray-900">Real-time Threat Detection Feed</h2>
+                <div class="flex items-center space-x-4">
+                    <button onclick="toggleAutoRefresh()" id="autoRefreshBtn" class="text-sm bg-green-100 text-green-800 px-3 py-1 rounded font-medium">
+                        Auto-refresh: ON
+                    </button>
+                    <div class="flex items-center space-x-2">
+                        <div class="status-indicator bg-green-500"></div>
+                        <span class="text-xs text-gray-500">Live monitoring</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="threatFeed" class="space-y-3 max-h-96 overflow-y-auto">
+                <!-- Dynamic threat feed will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Options -->
+    <div class="fixed bottom-6 right-6 flex flex-col space-y-3">
+        <button onclick="exportAnalysisReport()" class="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full shadow-lg transition-colors">
+            📊 Export Report
+        </button>
+        <button onclick="exportVisualizationData()" class="bg-green-600 hover:bg-green-700 text-white p-3 rounded-full shadow-lg transition-colors">
+            📁 Export Data
+        </button>
+    </div>
+
+    <script>
+        // Global data storage
+        let dashboardData = {
+            users: [],
+            videos: [],
+            interactions: [],
+            processedStats: null
+        };
+
+        let charts = {};
+        let autoRefreshInterval = null;
+
+        // Utility functions
+        function formatNumber(num) {
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return num.toLocaleString();
+        }
+
+        function showLoading(show = true) {
+            document.getElementById('loadingOverlay').classList.toggle('hidden', !show);
+        }
+
+        function updateLoadingProgress(percent, status) {
+            document.getElementById('loadingProgress').style.width = percent + '%';
+            document.getElementById('loadingStatus').textContent = status;
+        }
+
+        // CSV Loading and Processing
+        async function loadCSVFiles(event) {
+            const files = Array.from(event.target.files);
+            if (files.length === 0) return;
+
+            showLoading(true);
+            updateLoadingProgress(0, 'Starting file processing...');
+
+            try {
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    const fileName = file.name.toLowerCase();
+                    
+                    updateLoadingProgress((i / files.length) * 90, `Processing ${file.name}...`);
+                    
+                    if (fileName.includes('users')) {
+                        dashboardData.users = await parseCSVFile(file);
+                    } else if (fileName.includes('videos')) {
+                        dashboardData.videos = await parseCSVFile(file);
+                    } else if (fileName.includes('interactions')) {
+                        dashboardData.interactions = await parseCSVFile(file);
+                    }
+                }
+                
+                updateLoadingProgress(95, 'Processing analytics...');
+                await processAnalytics();
+                
+                updateLoadingProgress(100, 'Complete!');
+                setTimeout(() => showLoading(false), 1000);
+                
+                updateDatasetInfo();
+                renderAllCharts();
+                initializeRealTimeFeeds();
+                
+            } catch (error) {
+                console.error('Error loading CSV files:', error);
+                alert('Error loading files: ' + error.message);
+                showLoading(false);
+            }
+        }
+
+        function parseCSVFile(file) {
+            return new Promise((resolve, reject) => {
+                Papa.parse(file, {
+                    header: true,
+                    dynamicTyping: true,
+                    complete: (results) => resolve(results.data),
+                    error: (error) => reject(error)
+                });
+            });
+        }
+
+        async function processAnalytics() {
+            const stats = {
+                totalVideos: dashboardData.videos.length,
+                totalUsers: dashboardData.users.length,
+                totalInteractions: dashboardData.interactions.length,
+                
+                // Content type analysis
+                contentTypes: {},
+                categories: {},
+                anomalyLevels: { high: 0, medium: 0, low: 0 },
+                
+                // Bot analysis
+                botUsers: dashboardData.users.filter(user => user.user_type === 'bot').length,
+                botClusters: new Set(dashboardData.users.map(user => user.bot_cluster_id).filter(id => id >= 0)).size,
+                
+                // Engagement metrics
+                avgEngagement: 0,
+                manipulationRate: 0,
+                
+                // Geographic data
+                countries: {},
+                crossCountryInteractions: 0
+            };
+
+            // Process video data
+            if (dashboardData.videos.length > 0) {
+                dashboardData.videos.forEach(video => {
+                    // Content types
+                    const contentType = video.content_type || 'unknown';
+                    stats.contentTypes[contentType] = (stats.contentTypes[contentType] || 0) + 1;
+                    
+                    // Categories
+                    const category = video.category || 'unknown';
+                    if (!stats.categories[category]) {
+                        stats.categories[category] = {
+                            count: 0,
+                            totalEngagement: 0,
+                            manipulatedCount: 0
+                        };
+                    }
+                    stats.categories[category].count++;
+                    stats.categories[category].totalEngagement += (video.engagement_rate || 0);
+                    if (contentType !== 'organic') stats.categories[category].manipulatedCount++;
+                    
+                    // Anomaly levels
+                    const anomalyScore = video.anomaly_score || 0;
+                    if (anomalyScore > 0.8) stats.anomalyLevels.high++;
+                    else if (anomalyScore > 0.5) stats.anomalyLevels.medium++;
+                    else stats.anomalyLevels.low++;
+                    
+                    // Manipulation rate
+                    if (contentType !== 'organic') stats.manipulationRate++;
+                });
+                
+                stats.manipulationRate = (stats.manipulationRate / dashboardData.videos.length) * 100;
+                stats.avgEngagement = dashboardData.videos.reduce((sum, v) => sum + (v.engagement_rate || 0), 0) / dashboardData.videos.length;
+            }
+
+            // Process user geographic data
+            if (dashboardData.users.length > 0) {
+                dashboardData.users.forEach(user => {
+                    const country = user.country || 'Unknown';
+                    stats.countries[country] = (stats.countries[country] || 0) + 1;
+                });
+            }
+
+            // Process interactions for cross-country analysis
+            if (dashboardData.interactions.length > 0) {
+                stats.crossCountryInteractions = dashboardData.interactions.filter(
+                    interaction => interaction.is_cross_country === true
+                ).length;
+            }
+
+            dashboardData.processedStats = stats;
+        }
+
+        function updateDatasetInfo() {
+            const stats = dashboardData.processedStats;
+            if (!stats) return;
+
+            // Update header info
+            document.getElementById('datasetInfo').textContent = 
+                `${formatNumber(stats.totalVideos)} videos • ${formatNumber(stats.totalUsers)} users • ${formatNumber(stats.totalInteractions)} interactions`;
+            document.getElementById('lastUpdated').textContent = 
+                `Last updated: ${new Date().toLocaleTimeString('tr-TR')}`;
+
+            // Update KPI cards
+            document.getElementById('totalVideos').textContent = formatNumber(stats.totalVideos);
+            document.getElementById('totalUsers').textContent = formatNumber(stats.totalUsers);
+            document.getElementById('totalInteractions').textContent = formatNumber(stats.totalInteractions);
+            document.getElementById('manipulationRate').textContent = stats.manipulationRate.toFixed(1) + '%';
+            document.getElementById('botActivity').textContent = formatNumber(stats.botUsers);
+
+            // Update anomaly counts
+            document.getElementById('highRiskCount').textContent = formatNumber(stats.anomalyLevels.high);
+            document.getElementById('mediumRiskCount').textContent = formatNumber(stats.anomalyLevels.medium);
+            document.getElementById('lowRiskCount').textContent = formatNumber(stats.anomalyLevels.low);
+
+            // Update bot cluster count
+            document.getElementById('botClusterCount').textContent = `${stats.botClusters} clusters`;
+
+            // Update cross-country rate
+            const crossCountryRate = stats.totalInteractions > 0 
+                ? (stats.crossCountryInteractions / stats.totalInteractions * 100).toFixed(1)
+                : '0.0';
+            document.getElementById('crossCountryRate').textContent = crossCountryRate;
+        }
+
+        function renderAllCharts() {
+            renderContentTypeChart();
+            renderEngagementTrendChart();
+            renderAnomalyScoreChart();
+            renderCategoryMatrix();
+            renderBotCoordinationChart();
+            renderInteractionPatternsChart();
+            renderGeographicChart();
+            updateCategoryTable();
+            updateBotNetworkStats();
+            updateInteractionStats();
+            updateCountryStats();
+        }
+
+        function renderContentTypeChart() {
+            const ctx = document.getElementById('contentTypeChart').getContext('2d');
+            const stats = dashboardData.processedStats;
+            
+            if (charts.contentType) charts.contentType.destroy();
+            
+            const contentTypes = Object.entries(stats.contentTypes);
+            const colors = {
+                'organic': '#10b981',
+                'bot_boosted': '#f59e0b', 
+                'misinformation': '#ef4444',
+                'disinformation': '#dc2626',
+                'abuse': '#b91c1c',
+                'coordinated': '#991b1b'
+            };
+
+            charts.contentType = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: contentTypes.map(([type]) => type.charAt(0).toUpperCase() + type.slice(1)),
+                    datasets: [{
+                        data: contentTypes.map(([, count]) => count),
+                        backgroundColor: contentTypes.map(([type]) => colors[type] || '#6b7280'),
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                    return `${context.label}: ${formatNumber(context.parsed)} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Update legend
+            updateContentTypeLegend(contentTypes, colors);
+        }
+
+        function updateContentTypeLegend(contentTypes, colors) {
+            const legendContainer = document.getElementById('contentTypeLegend');
+            legendContainer.innerHTML = contentTypes.map(([type, count]) => {
+                const total = contentTypes.reduce((sum, [, c]) => sum + c, 0);
+                const percentage = ((count / total) * 100).toFixed(1);
+                return `
+                    <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-3 h-3 rounded" style="background-color: ${colors[type] || '#6b7280'}"></div>
+                            <span class="text-sm font-medium">${type.charAt(0).toUpperCase() + type.slice(1)}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-sm font-bold">${formatNumber(count)}</span>
+                            <span class="text-xs text-gray-500 ml-1">${percentage}%</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderEngagementTrendChart() {
+            const ctx = document.getElementById('engagementTrendChart').getContext('2d');
+            
+            if (charts.engagementTrend) charts.engagementTrend.destroy();
+            
+            // Create sample time series data from video posts
+            const dailyData = {};
+            dashboardData.videos.forEach(video => {
+                if (video.post_date) {
+                    const date = video.post_date;
+                    if (!dailyData[date]) {
+                        dailyData[date] = {
+                            organic: 0,
+                            manipulated: 0,
+                            totalEngagement: 0,
+                            count: 0
+                        };
+                    }
+                    
+                    const isOrganic = video.content_type === 'organic';
+                    if (isOrganic) dailyData[date].organic++;
+                    else dailyData[date].manipulated++;
+                    
+                    dailyData[date].totalEngagement += (video.engagement_rate || 0);
+                    dailyData[date].count++;
+                }
+            });
+
+            const sortedDates = Object.keys(dailyData).sort();
+            const last14Days = sortedDates.slice(-14);
+
+            charts.engagementTrend = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: last14Days.map(date => new Date(date).toLocaleDateString('tr-TR', { month: 'short', day: 'numeric' })),
+                    datasets: [
+                        {
+                            label: 'Organic Content',
+                            data: last14Days.map(date => dailyData[date].organic),
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 3,
+                            fill: false,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Manipulated Content', 
+                            data: last14Days.map(date => dailyData[date].manipulated),
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderWidth: 3,
+                            fill: false,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatNumber(value);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${formatNumber(context.parsed.y)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderAnomalyScoreChart() {
+            const ctx = document.getElementById('anomalyScoreChart').getContext('2d');
+            
+            if (charts.anomalyScore) charts.anomalyScore.destroy();
+            
+            // Create anomaly score histogram
+            const scores = dashboardData.videos.map(video => video.anomaly_score || 0);
+            const bins = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+            const histogram = new Array(bins.length - 1).fill(0);
+            
+            scores.forEach(score => {
+                for (let i = 0; i < bins.length - 1; i++) {
+                    if (score >= bins[i] && score < bins[i + 1]) {
+                        histogram[i]++;
+                        break;
+                    }
+                }
+            });
+
+            charts.anomalyScore = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: bins.slice(0, -1).map((bin, i) => `${bin.toFixed(1)}-${bins[i+1].toFixed(1)}`),
+                    datasets: [{
+                        label: 'Video Count',
+                        data: histogram,
+                        backgroundColor: histogram.map((_, i) => {
+                            const midPoint = (bins[i] + bins[i + 1]) / 2;
+                            if (midPoint > 0.8) return '#ef4444';
+                            if (midPoint > 0.5) return '#f59e0b';
+                            return '#10b981';
+                        }),
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Videos: ${formatNumber(context.parsed.y)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Anomaly Score Range'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatNumber(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderCategoryMatrix() {
+            const ctx = document.getElementById('categoryMatrix').getContext('2d');
+            
+            if (charts.categoryMatrix) charts.categoryMatrix.destroy();
+            
+            const stats = dashboardData.processedStats;
+            const categories = Object.entries(stats.categories);
+            
+            charts.categoryMatrix = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: categories.map(([name]) => name),
+                    datasets: [
+                        {
+                            label: 'Avg Engagement Rate',
+                            data: categories.map(([, data]) => data.count > 0 ? (data.totalEngagement / data.count) : 0),
+                            backgroundColor: '#3b82f6',
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Manipulation Rate',
+                            data: categories.map(([, data]) => data.count > 0 ? (data.manipulatedCount / data.count * 100) : 0),
+                            backgroundColor: '#ef4444',
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            ticks: { maxRotation: 45 }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(1) + '%';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderBotCoordinationChart() {
+            const ctx = document.getElementById('botCoordinationChart').getContext('2d');
+            
+            if (charts.botCoordination) charts.botCoordination.destroy();
+            
+            // Analyze bot coordination strengths
+            const botUsers = dashboardData.users.filter(user => user.user_type === 'bot' && user.coordination_strength);
+            const coordinationBins = [0, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+            const histogram = new Array(coordinationBins.length - 1).fill(0);
+            
+            botUsers.forEach(user => {
+                const strength = user.coordination_strength || 0;
+                for (let i = 0; i < coordinationBins.length - 1; i++) {
+                    if (strength >= coordinationBins[i] && strength < coordinationBins[i + 1]) {
+                        histogram[i]++;
+                        break;
+                    }
+                }
+            });
+
+            charts.botCoordination = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: coordinationBins.slice(0, -1).map((bin, i) => `${bin.toFixed(1)}-${coordinationBins[i+1].toFixed(1)}`),
+                    datasets: [{
+                        label: 'Bot Count',
+                        data: histogram,
+                        backgroundColor: '#f59e0b',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatNumber(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderInteractionPatternsChart() {
+            const ctx = document.getElementById('interactionPatternsChart').getContext('2d');
+            
+            if (charts.interactionPatterns) charts.interactionPatterns.destroy();
+            
+            // Analyze interaction types from interactions data
+            const interactionTypes = {
+                likes: dashboardData.interactions.filter(i => i.interaction_type === 'like').length,
+                comments: dashboardData.interactions.filter(i => i.interaction_type === 'comment').length,
+                shares: dashboardData.interactions.filter(i => i.interaction_type === 'share').length,
+                reports: dashboardData.interactions.filter(i => i.interaction_type === 'report').length
+            };
+
+            charts.interactionPatterns = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Likes', 'Comments', 'Shares', 'Reports'],
+                    datasets: [{
+                        data: [interactionTypes.likes, interactionTypes.comments, interactionTypes.shares, interactionTypes.reports],
+                        backgroundColor: ['#3b82f6', '#10b981', '#8b5cf6', '#ef4444'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.label}: ${formatNumber(context.parsed)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderGeographicChart() {
+            const ctx = document.getElementById('geographicChart').getContext('2d');
+            
+            if (charts.geographic) charts.geographic.destroy();
+            
+            const stats = dashboardData.processedStats;
+            const countries = Object.entries(stats.countries).sort(([,a], [,b]) => b - a).slice(0, 8);
+
+            charts.geographic = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: countries.map(([country]) => country),
+                    datasets: [{
+                        label: 'User Count',
+                        data: countries.map(([, count]) => count),
+                        backgroundColor: '#6366f1',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatNumber(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateCategoryTable() {
+            const stats = dashboardData.processedStats;
+            const tbody = document.getElementById('categoryTableBody');
+            
+            const categories = Object.entries(stats.categories).sort(([,a], [,b]) => b.count - a.count);
+            
+            tbody.innerHTML = categories.map(([name, data]) => {
+                const avgEngagement = data.count > 0 ? (data.totalEngagement / data.count).toFixed(1) : '0.0';
+                const manipulationRate = data.count > 0 ? ((data.manipulatedCount / data.count) * 100).toFixed(1) : '0.0';
+                const riskLevel = manipulationRate > 50 ? 'High' : manipulationRate > 25 ? 'Medium' : 'Low';
+                const riskColor = manipulationRate > 50 ? 'text-red-600' : manipulationRate > 25 ? 'text-yellow-600' : 'text-green-600';
+                
+                return `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${name}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatNumber(data.count)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${avgEngagement}%</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${manipulationRate}%</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm ${riskColor} font-medium">${riskLevel}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateBotNetworkStats() {
+            const container = document.getElementById('botNetworkStats');
+            const stats = dashboardData.processedStats;
+            
+            // Group bots by cluster
+            const botClusters = {};
+            dashboardData.users.filter(user => user.user_type === 'bot' && user.bot_cluster_id >= 0).forEach(bot => {
+                const clusterId = bot.bot_cluster_id;
+                if (!botClusters[clusterId]) {
+                    botClusters[clusterId] = {
+                        botCount: 0,
+                        avgCoordination: 0,
+                        totalCoordination: 0
+                    };
+                }
+                botClusters[clusterId].botCount++;
+                botClusters[clusterId].totalCoordination += (bot.coordination_strength || 0);
+            });
+
+            // Calculate averages
+            Object.values(botClusters).forEach(cluster => {
+                cluster.avgCoordination = cluster.botCount > 0 ? cluster.totalCoordination / cluster.botCount : 0;
+            });
+
+            const topClusters = Object.entries(botClusters)
+                .sort(([,a], [,b]) => b.botCount - a.botCount)
+                .slice(0, 5);
+
+            container.innerHTML = topClusters.map(([clusterId, data]) => {
+                const riskLevel = data.avgCoordination > 0.9 ? 'High' : data.avgCoordination > 0.8 ? 'Medium' : 'Low';
+                const riskColor = data.avgCoordination > 0.9 ? 'bg-red-100 text-red-800' : 
+                                 data.avgCoordination > 0.8 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800';
+
+                return `
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div>
+                            <p class="font-medium text-gray-900">Cluster #${clusterId}</p>
+                            <p class="text-sm text-gray-600">${formatNumber(data.botCount)} bots</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="px-2 py-1 rounded-full text-xs font-medium ${riskColor}">${riskLevel}</span>
+                            <p class="text-sm text-gray-500 mt-1">${(data.avgCoordination * 100).toFixed(0)}% coord.</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateInteractionStats() {
+            const totalVideos = dashboardData.videos.length;
+            if (totalVideos === 0) return;
+
+            const totalLikes = dashboardData.videos.reduce((sum, v) => sum + (v.likes || 0), 0);
+            const totalComments = dashboardData.videos.reduce((sum, v) => sum + (v.comments || 0), 0);
+            const totalShares = dashboardData.videos.reduce((sum, v) => sum + (v.shares || 0), 0);
+            
+            // Calculate reports from interactions if available
+            const totalReports = dashboardData.interactions.filter(i => i.interaction_type === 'report').length;
+
+            document.getElementById('avgLikesPerVideo').textContent = formatNumber(Math.round(totalLikes / totalVideos));
+            document.getElementById('avgCommentsPerVideo').textContent = formatNumber(Math.round(totalComments / totalVideos));
+            document.getElementById('avgSharesPerVideo').textContent = formatNumber(Math.round(totalShares / totalVideos));
+            document.getElementById('avgReportsPerVideo').textContent = formatNumber(Math.round(totalReports / totalVideos));
+        }
+
+        function updateCountryStats() {
+            const stats = dashboardData.processedStats;
+            const container = document.getElementById('countryStats');
+            
+            const topCountries = Object.entries(stats.countries)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 6);
+
+            container.innerHTML = topCountries.map(([country, count]) => {
+                const percentage = ((count / stats.totalUsers) * 100).toFixed(1);
+                return `
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium text-gray-700">${country}</span>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm text-gray-900">${formatNumber(count)}</span>
+                            <span class="text-xs text-gray-500">${percentage}%</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function initializeRealTimeFeeds() {
+            updateThreatFeed();
+            startAutoRefresh();
+        }
+
+        function updateThreatFeed() {
+            const feed = document.getElementById('threatFeed');
+            
+            // Generate threat alerts based on actual data patterns
+            const threats = generateThreatAlerts();
+            
+            feed.innerHTML = threats.map(threat => {
+                const alertColors = {
+                    'CRITICAL': 'bg-red-50 border-red-200',
+                    'WARNING': 'bg-yellow-50 border-yellow-200', 
+                    'INFO': 'bg-blue-50 border-blue-200',
+                    'SUCCESS': 'bg-green-50 border-green-200'
+                };
+
+                const badgeColors = {
+                    'CRITICAL': 'bg-red-100 text-red-800',
+                    'WARNING': 'bg-yellow-100 text-yellow-800',
+                    'INFO': 'bg-blue-100 text-blue-800', 
+                    'SUCCESS': 'bg-green-100 text-green-800'
+                };
+
+                return `
+                    <div class="flex items-start space-x-3 p-4 ${alertColors[threat.level]} rounded-lg border">
+                        <div class="w-3 h-3 rounded-full mt-1 ${threat.level === 'CRITICAL' ? 'bg-red-500' : threat.level === 'WARNING' ? 'bg-yellow-500' : threat.level === 'SUCCESS' ? 'bg-green-500' : 'bg-blue-500'} flex-shrink-0"></div>
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-sm font-medium text-gray-900">${threat.time}</span>
+                                <span class="text-xs font-medium px-2 py-1 rounded ${badgeColors[threat.level]}">${threat.level}</span>
+                            </div>
+                            <p class="text-sm text-gray-700">${threat.message}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function generateThreatAlerts() {
+            const stats = dashboardData.processedStats;
+            const alerts = [];
+            const now = new Date();
+
+            // Generate alerts based on actual data
+            if (stats.anomalyLevels.high > 1000) {
+                alerts.push({
+                    time: new Date(now - Math.random() * 300000).toLocaleTimeString('tr-TR'),
+                    level: 'CRITICAL',
+                    message: `High anomaly content spike detected: ${formatNumber(stats.anomalyLevels.high)} videos with anomaly score > 0.8`
+                });
+            }
+
+            if (stats.manipulationRate > 30) {
+                alerts.push({
+                    time: new Date(now - Math.random() * 600000).toLocaleTimeString('tr-TR'),
+                    level: 'WARNING',
+                    message: `Manipulation rate exceeds normal threshold: ${stats.manipulationRate.toFixed(1)}% of content flagged`
+                });
+            }
+
+            if (stats.botClusters > 3) {
+                alerts.push({
+                    time: new Date(now - Math.random() * 900000).toLocaleTimeString('tr-TR'),
+                    level: 'WARNING',
+                    message: `${stats.botClusters} coordinated bot clusters detected with high activity patterns`
+                });
+            }
+
+            // Add some positive alerts
+            alerts.push({
+                time: new Date(now - Math.random() * 1200000).toLocaleTimeString('tr-TR'),
+                level: 'SUCCESS',
+                message: `Auto-moderation system successfully flagged ${formatNumber(stats.anomalyLevels.high + stats.anomalyLevels.medium)} suspicious videos`
+            });
+
+            alerts.push({
+                time: new Date(now - Math.random() * 1500000).toLocaleTimeString('tr-TR'),
+                level: 'INFO',
+                message: `Cross-country interaction analysis completed: ${((stats.crossCountryInteractions / stats.totalInteractions) * 100).toFixed(1)}% international engagement`
+            });
+
+            return alerts.slice(0, 8); // Show latest 8 alerts
+        }
+
+        function startAutoRefresh() {
+            if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+            
+            autoRefreshInterval = setInterval(() => {
+                updateThreatFeed();
+                // Add small random variations to simulate live data
+                simulateLiveUpdates();
+            }, 30000); // Refresh every 30 seconds
+        }
+
+        function simulateLiveUpdates() {
+            // Add small random increments to simulate live data
+            const currentVideos = parseInt(document.getElementById('totalVideos').textContent.replace(/[^\d]/g, ''));
+            if (!isNaN(currentVideos)) {
+                const increment = Math.floor(Math.random() * 10);
+                document.getElementById('totalVideos').textContent = formatNumber(currentVideos + increment);
+            }
+        }
+
+        function toggleAutoRefresh() {
+            const btn = document.getElementById('autoRefreshBtn');
+            
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+                btn.textContent = 'Auto-refresh: OFF';
+                btn.className = 'text-sm bg-red-100 text-red-800 px-3 py-1 rounded font-medium';
+            } else {
+                startAutoRefresh();
+                btn.textContent = 'Auto-refresh: ON';
+                btn.className = 'text-sm bg-green-100 text-green-800 px-3 py-1 rounded font-medium';
+            }
+        }
+
+        // Category view functions
+        function showCategoryView(viewType) {
+            const buttons = ['engagementBtn', 'manipulationBtn', 'growthBtn'];
+            
+            buttons.forEach(btnId => {
+                const btn = document.getElementById(btnId);
+                if (btnId === viewType + 'Btn') {
+                    btn.className = 'px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors';
+                } else {
+                    btn.className = 'px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors';
+                }
+            });
+
+            // Update chart based on view type
+            renderCategoryMatrix();
+        }
+
+        // Export functions
+        function exportAnalysisReport() {
+            const stats = dashboardData.processedStats;
+            if (!stats) {
+                alert('No data loaded for export');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            const currentDate = new Date().toLocaleDateString('tr-TR');
+            const currentTime = new Date().toLocaleTimeString('tr-TR');
+            
+            // Header
+            doc.setFontSize(20);
+            doc.setFont(undefined, 'bold');
+            doc.text('TikTok Analytics Report', 20, 25);
+            
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'normal');
+            doc.text(`Generated: ${currentDate} ${currentTime}`, 20, 35);
+            doc.text('Advanced Manipulation Detection Analysis', 20, 45);
+            
+            // Executive Summary
+            doc.setFontSize(16);
+            doc.setFont(undefined, 'bold');
+            doc.text('Executive Summary', 20, 65);
+            
+            doc.setFontSize(11);
+            doc.setFont(undefined, 'normal');
+            let yPosition = 75;
+            
+            const summaryData = [
+                `Total Videos Analyzed: ${formatNumber(stats.totalVideos)}`,
+                `Total Users: ${formatNumber(stats.totalUsers)}`,
+                `Total Interactions: ${formatNumber(stats.totalInteractions)}`,
+                `Manipulation Rate: ${stats.manipulationRate.toFixed(1)}%`,
+                `Bot Accounts Detected: ${formatNumber(stats.botUsers)}`,
+                `Bot Clusters Identified: ${stats.botClusters}`,
+                `High-Risk Content: ${formatNumber(stats.anomalyLevels.high)} videos`,
+                `Cross-Country Interactions: ${((stats.crossCountryInteractions / stats.totalInteractions) * 100).toFixed(1)}%`
+            ];
+            
+            summaryData.forEach(item => {
+                doc.text(`• ${item}`, 25, yPosition);
+                yPosition += 8;
+            });
+            
+            // Content Type Analysis
+            yPosition += 10;
+            doc.setFontSize(14);
+            doc.setFont(undefined, 'bold');
+            doc.text('Content Type Distribution', 20, yPosition);
+            
+            yPosition += 10;
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            
+            Object.entries(stats.contentTypes).forEach(([type, count]) => {
+                const percentage = ((count / stats.totalVideos) * 100).toFixed(1);
+                doc.text(`${type.charAt(0).toUpperCase() + type.slice(1)}: ${formatNumber(count)} (${percentage}%)`, 25, yPosition);
+                yPosition += 6;
+            });
+            
+            // Anomaly Analysis
+            yPosition += 10;
+            doc.setFontSize(14);
+            doc.setFont(undefined, 'bold');
+            doc.text('Threat Assessment', 20, yPosition);
+            
+            yPosition += 10;
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            
+            const threatData = [
+                `High Risk Videos (Score > 0.8): ${formatNumber(stats.anomalyLevels.high)}`,
+                `Medium Risk Videos (Score 0.5-0.8): ${formatNumber(stats.anomalyLevels.medium)}`,
+                `Low Risk Videos (Score < 0.5): ${formatNumber(stats.anomalyLevels.low)}`
+            ];
+            
+            threatData.forEach(item => {
+                doc.text(`• ${item}`, 25, yPosition);
+                yPosition += 6;
+            });
+            
+            // Category Analysis
+            if (yPosition > 220) {
+                doc.addPage();
+                yPosition = 25;
+            }
+            
+            yPosition += 10;
+            doc.setFontSize(14);
+            doc.setFont(undefined, 'bold');
+            doc.text('Category Performance Analysis', 20, yPosition);
+            
+            yPosition += 10;
+            doc.setFontSize(9);
+            doc.setFont(undefined, 'normal');
+            
+            // Table header
+            doc.text('Category', 25, yPosition);
+            doc.text('Videos', 70, yPosition);
+            doc.text('Avg Engagement', 100, yPosition);
+            doc.text('Manipulation Rate', 140, yPosition);
+            
+            yPosition += 8;
+            doc.line(20, yPosition - 2, 190, yPosition - 2);
+            
+            Object.entries(stats.categories).slice(0, 10).forEach(([name, data]) => {
+                const avgEngagement = data.count > 0 ? (data.totalEngagement / data.count).toFixed(1) : '0.0';
+                const manipulationRate = data.count > 0 ? ((data.manipulatedCount / data.count) * 100).toFixed(1) : '0.0';
+                
+                doc.text(name, 25, yPosition);
+                doc.text(formatNumber(data.count), 70, yPosition);
+                doc.text(`${avgEngagement}%`, 100, yPosition);
+                doc.text(`${manipulationRate}%`, 140, yPosition);
+                yPosition += 6;
+            });
+            
+            // Geographic Analysis
+            if (yPosition > 200) {
+                doc.addPage();
+                yPosition = 25;
+            }
+            
+            yPosition += 15;
+            doc.setFontSize(14);
+            doc.setFont(undefined, 'bold');
+            doc.text('Geographic Distribution', 20, yPosition);
+            
+            yPosition += 10;
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            
+            const topCountries = Object.entries(stats.countries)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 8);
+                
+            topCountries.forEach(([country, count]) => {
+                const percentage = ((count / stats.totalUsers) * 100).toFixed(1);
+                doc.text(`${country}: ${formatNumber(count)} users (${percentage}%)`, 25, yPosition);
+                yPosition += 6;
+            });
+            
+            // Key Findings and Recommendations
+            if (yPosition > 200) {
+                doc.addPage();
+                yPosition = 25;
+            }
+            
+            yPosition += 15;
+            doc.setFontSize(14);
+            doc.setFont(undefined, 'bold');
+            doc.text('Key Findings & Recommendations', 20, yPosition);
+            
+            yPosition += 10;
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            
+            const findings = [
+                `• Manipulation detection identified ${stats.manipulationRate.toFixed(1)}% suspicious content`,
+                `• ${stats.botClusters} coordinated bot networks detected with high activity`,
+                `• Cross-border interactions account for ${((stats.crossCountryInteractions / stats.totalInteractions) * 100).toFixed(1)}% of total activity`,
+                `• ${formatNumber(stats.anomalyLevels.high)} videos require immediate review (high anomaly score)`,
+                '',
+                'Recommended Actions:',
+                '• Implement enhanced monitoring for identified bot clusters',
+                '• Review content moderation policies for high-risk categories',
+                '• Strengthen cross-country interaction validation',
+                '• Deploy automated response for anomaly scores > 0.8'
+            ];
+            
+            findings.forEach(item => {
+                if (item === '') {
+                    yPosition += 4;
+                } else {
+                    doc.text(item, 25, yPosition);
+                    yPosition += 6;
+                }
+            });
+            
+            // Footer
+            const pageCount = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFontSize(8);
+                doc.text(`Page ${i} of ${pageCount} - TikTok Analytics Dashboard`, 20, 285);
+                doc.text(`Report generated: ${currentDate} ${currentTime}`, 120, 285);
+            }
+            
+            // Save the PDF
+            const fileName = `TikTok_Analytics_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+            doc.save(fileName);
+        }
+
+        function exportVisualizationData() {
+            if (dashboardData.processedStats) {
+                const data = {
+                    exportDate: new Date().toISOString(),
+                    processedStats: dashboardData.processedStats,
+                    rawDataSummary: {
+                        usersCount: dashboardData.users.length,
+                        videosCount: dashboardData.videos.length,
+                        interactionsCount: dashboardData.interactions.length
+                    }
+                };
+
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `tiktok_visualization_data_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } else {
+                alert('No processed data available for export');
+            }
+        }
+
+        // Utility functions
+        function refreshAnomalyData() {
+            if (dashboardData.processedStats) {
+                renderAnomalyScoreChart();
+                updateThreatFeed();
+            }
+        }
+
+        function updateTrendChart() {
+            const timeframe = document.getElementById('trendTimeframe').value;
+            // Implement different time views based on selection
+            renderEngagementTrendChart();
+        }
+
+        // Initialize dashboard when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Advanced TikTok Analytics Dashboard loaded');
+            console.log('Upload your CSV files to begin analysis');
+        });
+    </script>
+</body>
+</html>

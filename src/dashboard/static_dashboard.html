@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok Analytics Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Papa Parse/5.4.1/papaparse.min.js"></script>
+    <style>
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            background-color: #10B981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b mb-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <div class="flex items-center space-x-4">
+                    <div class="w-14 h-14 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                        <span class="text-white text-2xl font-bold">📊</span>
+                    </div>
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900">TikTok Analytics Dashboard</h1>
+                        <p class="text-gray-600">Production Dataset Analysis • Advanced Manipulation Detection</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex flex-col items-center">
+                        <input type="file" id="csvUpload" accept=".csv" class="hidden" onchange="loadCSV(event)">
+                        <button onclick="document.getElementById('csvUpload').click()" 
+                                class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                            📁 Upload CSV Data
+                        </button>
+                        <span id="loadStatus" class="text-xs text-gray-500 mt-1">Waiting for data...</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="status-dot"></div>
+                        <span class="text-sm text-gray-600">Live Processing</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            
+            <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-purple-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Total Videos</p>
+                        <p id="totalVideos" class="text-3xl font-bold text-gray-900">1.0M</p>
+                        <p class="text-sm text-gray-500 mt-1">Last 14 days</p>
+                    </div>
+                    <div class="p-3 bg-purple-100 rounded-full">
+                        <span class="text-purple-600 text-2xl">👁️</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Active Users</p>
+                        <p id="totalUsers" class="text-3xl font-bold text-gray-900">80K</p>
+                        <p class="text-sm text-gray-500 mt-1">Including bots</p>
+                    </div>
+                    <div class="p-3 bg-blue-100 rounded-full">
+                        <span class="text-blue-600 text-2xl">👥</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">User Interactions</p>
+                        <p id="totalInteractions" class="text-3xl font-bold text-gray-900">1.8M</p>
+                        <p class="text-sm text-gray-500 mt-1">Likes, comments, shares</p>
+                    </div>
+                    <div class="p-3 bg-green-100 rounded-full">
+                        <span class="text-green-600 text-2xl">💬</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6 border-l-4 border-red-500">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-600">Threat Level</p>
+                        <p id="manipulationRate" class="text-3xl font-bold text-gray-900">28.7%</p>
+                        <p class="text-sm text-gray-500 mt-1">Manipulation detected</p>
+                    </div>
+                    <div class="p-3 bg-red-100 rounded-full">
+                        <span class="text-red-600 text-2xl">⚠️</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            
+            <!-- Content Type Distribution -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex items-center space-x-3 mb-6">
+                    <span class="text-xl">🛡️</span>
+                    <h2 class="text-xl font-bold text-gray-900">Content Type Distribution</h2>
+                </div>
+                <div class="relative">
+                    <canvas id="contentChart" width="400" height="300"></canvas>
+                </div>
+                <div class="mt-6 grid grid-cols-2 gap-3">
+                    <div class="flex items-center space-x-2 p-2 bg-gray-50 rounded">
+                        <div class="w-4 h-4 bg-green-500 rounded"></div>
+                        <span class="text-sm">Organic (60%)</span>
+                    </div>
+                    <div class="flex items-center space-x-2 p-2 bg-gray-50 rounded">
+                        <div class="w-4 h-4 bg-yellow-500 rounded"></div>
+                        <span class="text-sm">Bot Boosted (12%)</span>
+                    </div>
+                    <div class="flex items-center space-x-2 p-2 bg-gray-50 rounded">
+                        <div class="w-4 h-4 bg-red-500 rounded"></div>
+                        <span class="text-sm">Misinformation (10%)</span>
+                    </div>
+                    <div class="flex items-center space-x-2 p-2 bg-gray-50 rounded">
+                        <div class="w-4 h-4 bg-red-700 rounded"></div>
+                        <span class="text-sm">Abuse (8%)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Daily Activity Trends -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex items-center space-x-3 mb-6">
+                    <span class="text-xl">📈</span>
+                    <h2 class="text-xl font-bold text-gray-900">14-Day Activity Trends</h2>
+                </div>
+                <div class="relative">
+                    <canvas id="trendsChart" width="400" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category Performance -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center space-x-3">
+                    <span class="text-xl">📊</span>
+                    <h2 class="text-xl font-bold text-gray-900">Category Performance Comparison</h2>
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="showCategoryChart('engagement')" 
+                            class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors">
+                        Engagement Rates
+                    </button>
+                    <button onclick="showCategoryChart('manipulation')" 
+                            class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300 transition-colors">
+                        Manipulation Impact
+                    </button>
+                </div>
+            </div>
+            <div class="relative">
+                <canvas id="categoryChart" width="800" height="400"></canvas>
+            </div>
+        </div>
+
+        <!-- Bot Network Alert */}
+        <div class="bg-gradient-to-r from-red-50 to-orange-50 rounded-xl shadow-lg p-6 border border-red-200 mb-8">
+            <div class="flex items-center space-x-3 mb-6">
+                <span class="text-2xl">🤖</span>
+                <h2 class="text-xl font-bold text-red-900">Bot Network Detection</h2>
+            </div>
+            
+            <div class="bg-white rounded-lg p-4 mb-6 border border-red-200">
+                <div class="flex items-center space-x-2 mb-2">
+                    <span class="text-red-600 text-lg">⚠️</span>
+                    <span class="font-bold text-red-900">5 Active Bot Clusters Detected</span>
+                </div>
+                <p class="text-sm text-red-800">
+                    Total: 14,400 bot accounts detected across coordinated networks. 
+                    High manipulation activity in beauty and education categories.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="bg-white rounded-lg p-4 border border-red-100">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="font-medium text-gray-900">Cluster #0</span>
+                        <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">High Risk</span>
+                    </div>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Bots:</span>
+                            <span class="font-medium">1,247</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Videos:</span>
+                            <span class="font-medium">8,432</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Coordination:</span>
+                            <span class="font-medium">92%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg p-4 border border-red-100">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="font-medium text-gray-900">Cluster #1</span>
+                        <span class="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">High Risk</span>
+                    </div>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Bots:</span>
+                            <span class="font-medium">1,186</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Videos:</span>
+                            <span class="font-medium">7,891</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Coordination:</span>
+                            <span class="font-medium">88%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg p-4 border border-yellow-200">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="font-medium text-gray-900">Cluster #2</span>
+                        <span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">Medium Risk</span>
+                    </div>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Bots:</span>
+                            <span class="font-medium">1,089</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Videos:</span>
+                            <span class="font-medium">7,234</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Coordination:</span>
+                            <span class="font-medium">85%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Activity Feed -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center space-x-3">
+                    <span class="text-xl">📡</span>
+                    <h2 class="text-xl font-bold text-gray-900">Live Threat Monitor</h2>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <div class="status-dot"></div>
+                    <span class="text-sm text-gray-500">Real-time</span>
+                </div>
+            </div>
+            
+            <div class="space-y-3 max-h-80 overflow-y-auto">
+                <div class="flex items-start space-x-3 p-4 bg-red-50 rounded-lg border border-red-200">
+                    <div class="w-3 h-3 bg-red-500 rounded-full mt-1 flex-shrink-0"></div>
+                    <div class="flex-1">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-sm font-medium text-gray-900">10:08:45</span>
+                            <span class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded font-medium">CRITICAL</span>
+                        </div>
+                        <p class="text-sm text-gray-700">
+                            Bot cluster #2 coordinated attack detected: 247% engagement spike in beauty category
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex items-start space-x-3 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <div class="w-3 h-3 bg-yellow-500 rounded-full mt-1 flex-shrink-0"></div>
+                    <div class="flex-1">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-sm font-medium text-gray-900">10:08:32</span>
+                            <span class="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded font-medium">WARNING</span>
+                        </div>
+                        <p class="text-sm text-gray-700">
+                            Health misinformation campaign: 47K videos with suspicious share patterns detected
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex items-start space-x-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div class="w-3 h-3 bg-blue-500 rounded-full mt-1 flex-shrink-0"></div>
+                    <div class="flex-1">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-sm font-medium text-gray-900">10:08:18</span>
+                            <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-medium">INFO</span>
+                        </div>
+                        <p class="text-sm text-gray-700">
+                            New viral trend in pet category - organic growth pattern confirmed
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex items-start space-x-3 p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div class="w-3 h-3 bg-green-500 rounded-full mt-1 flex-shrink-0"></div>
+                    <div class="flex-1">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-sm font-medium text-gray-900">10:08:05</span>
+                            <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-medium">SUCCESS</span>
+                        </div>
+                        <p class="text-sm text-gray-700">
+                            Auto-moderation system blocked 156 abuse videos automatically
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-6">📋 Dataset Summary</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div class="text-center p-4 bg-purple-50 rounded-lg">
+                    <div class="text-2xl font-bold text-purple-600">287K</div>
+                    <div class="text-sm text-purple-800 font-medium">Suspicious Videos</div>
+                    <div class="text-xs text-gray-500 mt-1">28.7% of total content</div>
+                </div>
+                <div class="text-center p-4 bg-blue-50 rounded-lg">
+                    <div class="text-2xl font-bold text-blue-600">14</div>
+                    <div class="text-sm text-blue-800 font-medium">CPU Cores Active</div>
+                    <div class="text-xs text-gray-500 mt-1">Xeon E5-2680 v4</div>
+                </div>
+                <div class="text-center p-4 bg-green-50 rounded-lg">
+                    <div class="text-2xl font-bold text-green-600">82%</div>
+                    <div class="text-sm text-green-800 font-medium">Human Interactions</div>
+                    <div class="text-xs text-gray-500 mt-1">Genuine engagement</div>
+                </div>
+                <div class="text-center p-4 bg-red-50 rounded-lg">
+                    <div class="text-2xl font-bold text-red-600">18%</div>
+                    <div class="text-sm text-red-800 font-medium">Bot Interactions</div>
+                    <div class="text-xs text-gray-500 mt-1">Automated activity</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="text-center text-sm text-gray-500">
+                <p>Production TikTok Simulator • Advanced Manipulation Detection System</p>
+                <p class="mt-1">Dataset: 1M videos, 80K users, 1.8M interactions • 14-day analysis window</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Sample data
+        let dashboardData = {
+            totalVideos: 1000000,
+            totalUsers: 80000,
+            totalInteractions: 1800000,
+            manipulationRate: 28.7,
+            contentTypes: [
+                { label: 'Organic', value: 600000, color: '#10B981' },
+                { label: 'Bot Boosted', value: 120000, color: '#F59E0B' },
+                { label: 'Misinformation', value: 100000, color: '#EF4444' },
+                { label: 'Abuse', value: 80000, color: '#DC2626' },
+                { label: 'Disinformation', value: 60000, color: '#B91C1C' },
+                { label: 'Coordinated', value: 40000, color: '#991B1B' }
+            ],
+            categories: [
+                { name: 'Komedi', organic: 22.1, manipulated: 38.5 },
+                { name: 'Pet', organic: 20.3, manipulated: 35.2 },
+                { name: 'Dans', organic: 19.2, manipulated: 33.8 },
+                { name: 'Eğlence', organic: 18.1, manipulated: 32.1 },
+                { name: 'Spor', organic: 17.0, manipulated: 29.4 },
+                { name: 'Müzik', organic: 16.2, manipulated: 28.7 },
+                { name: 'Gaming', organic: 15.8, manipulated: 31.2 },
+                { name: 'Güzellik', organic: 15.1, manipulated: 42.3 }
+            ]
+        };
+
+        // Initialize Charts
+        let contentChart, trendsChart, categoryChart;
+
+        // Format number helper
+        function formatNumber(num) {
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(0) + 'K';
+            return num.toString();
+        }
+
+        // Load CSV Data
+        function loadCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            document.getElementById('loadStatus').textContent = 'Loading CSV...';
+            
+            Papa.parse(file, {
+                header: true,
+                complete: function(results) {
+                    console.log('CSV Loaded:', results.data.length, 'rows');
+                    document.getElementById('loadStatus').textContent = `✅ Loaded: ${results.data.length} rows`;
+                    
+                    // Process CSV data here
+                    processCSVData(results.data);
+                },
+                error: function(error) {
+                    console.error('CSV Error:', error);
+                    document.getElementById('loadStatus').textContent = '❌ Error loading CSV';
+                }
+            });
+        }
+
+        // Process CSV Data
+        function processCSVData(data) {
+            // Update KPIs based on CSV data
+            if (data.length > 0) {
+                // Example processing - customize based on your CSV structure
+                document.getElementById('totalVideos').textContent = formatNumber(data.length);
+                
+                // Count unique users if user_id column exists
+                if (data[0].user_id) {
+                    const uniqueUsers = new Set(data.map(row => row.user_id)).size;
+                    document.getElementById('totalUsers').textContent = formatNumber(uniqueUsers);
+                }
+                
+                // Update charts with real data
+                updateChartsWithRealData(data);
+            }
+        }
+
+        // Update charts with real data
+        function updateChartsWithRealData(data) {
+            // Content type analysis
+            if (data[0].content_type) {
+                const contentTypeCounts = {};
+                data.forEach(row => {
+                    const type = row.content_type || 'unknown';
+                    contentTypeCounts[type] = (contentTypeCounts[type] || 0) + 1;
+                });
+                
+                // Update pie chart
+                updateContentChart(contentTypeCounts);
+            }
+            
+            // Category analysis
+            if (data[0].category && data[0].engagement_rate) {
+                updateCategoryChart(data);
+            }
+        }
+
+        // Initialize Content Pie Chart
+        function initContentChart() {
+            const ctx = document.getElementById('contentChart').getContext('2d');
+            contentChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: dashboardData.contentTypes.map(item => item.label),
+                    datasets: [{
+                        data: dashboardData.contentTypes.map(item => item.value),
+                        backgroundColor: dashboardData.contentTypes.map(item => item.color),
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = formatNumber(context.parsed);
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize Trends Line Chart
+        function initTrendsChart() {
+            const ctx = document.getElementById('trendsChart').getContext('2d');
+            
+            // Sample 14-day data
+            const dates = [];
+            const organicData = [];
+            const manipulatedData = [];
+            
+            for (let i = 13; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                dates.push(date.toLocaleDateString('tr-TR', { month: 'short', day: 'numeric' }));
+                organicData.push(45000 + Math.random() * 20000);
+                manipulatedData.push(15000 + Math.random() * 15000);
+            }
+            
+            trendsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: 'Organic Content',
+                            data: organicData,
+                            borderColor: '#10B981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 3,
+                            fill: false,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Manipulated Content',
+                            data: manipulatedData,
+                            borderColor: '#EF4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderWidth: 3,
+                            fill: false,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return formatNumber(value);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${formatNumber(context.parsed.y)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize Category Bar Chart
+        function initCategoryChart() {
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            categoryChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: dashboardData.categories.map(item => item.name),
+                    datasets: [
+                        {
+                            label: 'Organic Engagement',
+                            data: dashboardData.categories.map(item => item.organic),
+                            backgroundColor: '#10B981',
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Manipulated Engagement',
+                            data: dashboardData.categories.map(item => item.manipulated),
+                            backgroundColor: '#EF4444',
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            ticks: {
+                                maxRotation: 45
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(1) + '%';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Show category chart by type
+        function showCategoryChart(type) {
+            // Toggle button states
+            const buttons = document.querySelectorAll('button[onclick^="showCategoryChart"]');
+            buttons.forEach(btn => {
+                btn.className = btn.textContent.toLowerCase().includes(type) 
+                    ? 'px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors'
+                    : 'px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300 transition-colors';
+            });
+        }
+
+        // Initialize all charts when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initContentChart();
+            initTrendsChart();
+            initCategoryChart();
+            
+            console.log('TikTok Analytics Dashboard loaded successfully!');
+            console.log('Upload CSV files to see real data visualization.');
+        });
+    </script>
+
+</body>
+</html>

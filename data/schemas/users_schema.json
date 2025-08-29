@@ -1,0 +1,12 @@
+{
+  "user_id": "string",
+  "username": "string",
+  "user_type": "enum[genuine, bot, influencer, troll, coordinated_actor]",
+  "follower_count": "integer",
+  "following_count": "integer",
+  "country": "string",
+  "age_group": "string",
+  "account_creation_date": "date",
+  "is_verified": "boolean",
+  "bot_cluster_id": "integer or null"
+}
